@@ -1,21 +1,45 @@
-// LibTester.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
+
 
 #include <iostream>
 #include "SupportHeader.h"
+#pragma comment (lib, "HttpLib.lib")
+
 
 int main()
 {
-	
+	HttpRequest request;
+
+	request.AddHeader("Hello", "World");
+	request.AddHeader("Smily:face");
+	//request.AddProxy("127.0.0.1:8888", http);
+	request.KeepAlive = true;
+	HttpResponse response = request.Start(HEAD, "https://www.google.com");
+	printf("Status code %d\n", response.ReturnCode);
+	printf("Response headers:\n");
+	for (int i = 0;;i++) {
+		if (response.headers[i] == "")break;
+		std::cout << response.headers[i] << std::endl;
+	}
+	printf("Response cookies:\n");
+	for (int i = 0;; i++) {
+		if (response.cookies[i] == "")break;
+		std::cout << response.cookies[i] << std::endl;
+	}
+	printf("\nBody:none since this is a head request");
+	request.ClearAllHeaders();
+	request.AddHeader("Some", "Header");
+	HttpResponse response2 = request.Start(POST, "https://www.google.com", "parameter1=1&parameter2=2", "application/www-form-urlencoded");
+	printf("\n\nStatus code %d\n", response2.ReturnCode);
+	printf("Response headers:\n");
+	for (int i = 0;; i++) {
+		if (response2.headers[i] == "")break;
+		std::cout << response2.headers[i] << std::endl;
+	}
+	printf("Response cookies:\n");
+	for (int i = 0;; i++) {
+		if (response2.cookies[i] == "")break;
+		std::cout << response2.cookies[i] << std::endl;
+	}
+	printf("\nBody:\n");
+	std::cout << response2.responseBody << std::endl;
 }
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
