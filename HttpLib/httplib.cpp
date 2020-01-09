@@ -1,6 +1,8 @@
 #include "pch.h"
 
 #include "SupportHeader.h"
+#include "MimeTypes.h"
+
 
 
 std::string* GetHeaders(HINTERNET hreq);
@@ -12,7 +14,23 @@ std::string GetCookie(std::string cookieHeader);
 HttpResponse get(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type,bool KeepAlive,bool AutoRedirect,bool AllowCookies);
 HttpResponse head(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies);
 HttpResponse post(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies,std::string body,std::string contenttype);
+HttpResponse post_multipart(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, MultiPartContent content);
 
+std::string ReadBinaryFile(std::string path) {
+	std::ifstream fs;
+	fs.open(path, std::ios::binary);
+	fs.seekg(0, std::ios::end);
+	size_t i = fs.tellg();
+	char* buf = new char[i];
+	fs.seekg(0, std::ios::beg);
+	fs.read(buf, i);
+	fs.close();
+	std::string s;
+	s.assign(buf, i);
+	delete[] buf;
+
+	return s;
+}
 std::wstring s2ws(const std::string& s)
 {
 	int len;
@@ -95,6 +113,17 @@ HttpResponse HttpRequest::Start(HttpMethod method, std::string url, std::string 
 	}
 }
 
+HttpResponse HttpRequest::Start(HttpMethod method, std::string url, MultiPartContent content) {
+	switch (method)
+	{
+	case GET:
+		throw "Get request cannot use multipartcontent";
+	case HEAD:
+		throw "Head request cannot use multipartcontent";
+	case POST:
+		return post_multipart(url, this->headers, this->headerCount, this->ProxyUse, this->proxyAddress, this->proxyPort, this->proxytype, this->KeepAlive, this->AllowAutoRedirect, this->AllowCookies, content);
+	}
+}
 
 HttpResponse get(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type,bool KeepAlive,bool AutoRedirect,bool AllowCookies) {
 	
@@ -311,6 +340,97 @@ HttpResponse post(std::string url, std::string headers[], int headercount, bool 
 	return response;
 }
 
+HttpResponse post_multipart(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, MultiPartContent content) {
+	std::string* all = Seperate(url);
+	std::string domain = all[0];
+	std::string path = all[1];
+	DWORD flags = NULL;
+	int port = 80;
+	if (url.find("https://") != std::string::npos) {
+		flags |= INTERNET_FLAG_SECURE;
+		flags |= INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
+		flags |= INTERNET_FLAG_IGNORE_REDIRECT_TO_HTTP;
+		port = 443;
+	}
+	if (KeepAlive) {
+		flags |= INTERNET_FLAG_KEEP_CONNECTION;
+	}
+	if (!AutoRedirect) {
+		flags |= INTERNET_FLAG_NO_AUTO_REDIRECT;
+	}
+	if (!AllowCookies) {
+		flags |= INTERNET_FLAG_NO_COOKIES;
+	}
+	HINTERNET io;
+	if (proxyuse) {
+		if (type == http) {
+			std::string proxyBody = proxyAddress + ":" + std::to_string(ProxyPort);
+			io = InternetOpen(NULL, INTERNET_OPEN_TYPE_PROXY, s2ws(proxyBody).c_str(), NULL, 0);
+		}
+		else {
+			std::string proxyBody = "socks=" + proxyAddress + ":" + std::to_string(ProxyPort);
+			io = InternetOpen(NULL, CERN_PROXY_INTERNET_ACCESS, s2ws(proxyBody).c_str(), NULL, 0);
+		}
+	}
+	else {
+		io = InternetOpen(NULL, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+	}
+	HINTERNET ic = InternetConnect(io, s2ws(domain).c_str(), port, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+	HINTERNET hreq = HttpOpenRequest(ic, L"POST", s2ws(path).c_str(), L"HTTP/1.1", NULL, NULL, flags, 0);
+	std::string ReqHeaders = "";
+	for (int i = 0; i < 1024; i++) {
+		if (headers[i] == "")break;
+		ReqHeaders += headers[i] + "\r\n";
+	}
+	ReqHeaders += "Content-Type: multipart/form-data; boundary=" + content.seperator;
+	HttpAddRequestHeaders(hreq, s2ws(ReqHeaders).c_str(), -1L, NULL);
+
+	std::string body = "";
+	for (int i = 0; i < 1024; i++) {
+		if (content.contents[i]._name == "")break;
+		if (content.contents[i]._filename != "") {
+			body += "--" + content.seperator;
+			body += "\r\nContent-Disposition: form-data; name=\"" + content.contents[i]._name + "\"; filename=\"" + content.contents[i]._filename + "\"\r\nContent-Type: " + GetMimeType(content.contents[i]._filename) + "\r\n\r\n";
+			body += content.contents[i]._value + "\r\n";
+			continue;
+		}
+		else {
+			body += "--" + content.seperator;
+			body += "\r\nContent-Disposition: form-data; name=\"" + content.contents[i]._name + "\"\r\n\r\n";
+			body += content.contents[i]._value + "\r\n";
+			continue;
+		}
+	}
+	body += "--" + content.seperator + "--";
+	char* data = new char[body.size()];
+	for (int i = 0; i < body.size(); i++) {
+		data[i] = body[i];
+	}
+	HttpSendRequest(hreq, NULL, 0, data, body.size());
+	HttpResponse response;
+	response.Url = url;
+	response.ReturnCode = GetStatusCode(hreq);
+	if (response.ReturnCode == 0)throw GetLastError();
+	std::string* ResponseHeaders = GetHeaders(hreq);
+
+	for (int i = 1; i < 1024; i++) {
+		if (ResponseHeaders[i - 1] == "")break;
+		response.headers[i - 1] = ResponseHeaders[i];
+	}
+	int j = 0;
+	response.responseBody = GetResponseBody(hreq);
+	for (int i = 0; i < 1024; i++) {
+		if (response.headers[i] == "")break;
+		if (response.headers[i].find("Set-Cookie:") != std::string::npos) {
+			std::string cookieforheader = GetCookie(response.headers[i]);
+			response.cookies[j] = cookieforheader;
+			j++;
+		}
+	}
+	return response;
+}
+
+
 std::string* GetHeaders(HINTERNET hreq) {
 	DWORD dwInfoLevel = HTTP_QUERY_RAW_HEADERS_CRLF;
 	DWORD dwInfoBufferLength = 10;
@@ -433,3 +553,19 @@ std::string GetCookie(std::string cookieHeader) {
 	a = a.substr(0, a.size() - 1);
 	return a;
 }
+
+MultiPartContent::MultiPartContent(std::initializer_list<HttpContent> h) {
+	int i = 0;
+	for (HttpContent content:h) {
+		contents[i] = content;
+		i++;
+	}
+	for (i = 0; i < 32; i++) {
+		int a = (std::rand() % 95) + 32;
+			if (a == 0 || a==12) {
+			a = 35;
+		}
+		seperator += (char)a;
+	}
+}
+
