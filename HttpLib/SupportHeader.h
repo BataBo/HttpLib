@@ -6,10 +6,11 @@
 #pragma comment (lib, "wininet.lib")
 #include <iostream>
 #include <fstream>
+#include <time.h>
 
 enum ProxyType { http, socks4, socks5 };
 
-enum HttpMethod { GET, HEAD, POST };
+enum HttpMethod { GET, HEAD, POST,PUT,PATCH };
 
 _declspec(dllexport) std::string ReadBinaryFile(std::string path);
 struct _declspec(dllexport) HttpContent {
@@ -49,6 +50,7 @@ struct _declspec(dllexport) HttpResponse
 	std::string headers[1024];
 	std::string cookies[1024];
 	std::string responseBody;
+	void SaveToFile();
 };
 
  struct _declspec(dllexport) HttpRequest
@@ -59,9 +61,18 @@ private:std::string headers[1024];
 	std::string proxyAddress;
 	int proxyPort;
 	ProxyType proxytype;
+
 public:bool KeepAlive = false;
+	  bool PermanentHeaders = true;
 	bool AllowAutoRedirect = true;
 	bool AllowCookies = true;
+	std::string AcceptEncoding;
+	std::string Authorization;
+	int ConnectionTimout = -2;
+	int ReadWriteTimeout = -2;
+	std::string Cookies;
+	std::string Referer;
+	std::string UserAgent;
 	void AddHeader(std::string header, std::string value);
 	void AddHeader(std::string value);
 	void AddProxy(std::string proxy, ProxyType pt);
@@ -70,4 +81,25 @@ public:bool KeepAlive = false;
 	HttpResponse Start(HttpMethod method, std::string url,std::string content,std::string content_type);
 	HttpResponse Start(HttpMethod method, std::string url, MultiPartContent content);
 };
+
+ struct Random {
+	 Random() {
+		 std::srand(time(NULL));
+	 }
+	 int GenerateInt(int min, int max) {
+		 int number = std::rand();
+		 return min + (number % max);
+	 }
+	 char GenerateChar() {
+		 int number = std::rand();
+		 return (char)32 + (number % 95);
+	 }
+ };
+
+ _declspec(dllexport)std::string ChromeUserAgent();
+ _declspec(dllexport)std::string FirefoxUserAgent();
+ _declspec(dllexport)std::string IEUserAgent();
+ _declspec(dllexport)std::string OperaMiniUserAgent();
+ _declspec(dllexport)std::string OperaUserAgent();
+ _declspec(dllexport)std::string RandomUserAgent();
 
