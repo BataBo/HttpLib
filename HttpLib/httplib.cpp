@@ -2,19 +2,24 @@
 
 #include "SupportHeader.h"
 #include "MimeTypes.h"
+#include <time.h>
 
-
-
+void SetDefHeaders(HttpRequest* req);
+std::string defheaders = "";
 std::string* GetHeaders(HINTERNET hreq);
 int GetStatusCode(HINTERNET hreq);
 std::string* Seperate(std::string url);
 std::string GetResponseBody(HINTERNET hreq);
 std::string GetCookie(std::string cookieHeader);
 
-HttpResponse get(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type,bool KeepAlive,bool AutoRedirect,bool AllowCookies);
-HttpResponse head(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies);
-HttpResponse post(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies,std::string body,std::string contenttype);
-HttpResponse post_multipart(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, MultiPartContent content);
+HttpResponse get(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout);
+HttpResponse head(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout);
+HttpResponse post(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies,std::string body,std::string contenttype, bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout);
+HttpResponse post_multipart(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, MultiPartContent content, bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout);
+HttpResponse put(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, std::string body, std::string contenttype, bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout);
+HttpResponse put_multipart(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, MultiPartContent content, bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout);
+HttpResponse patch(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, std::string body, std::string contenttype, bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout);
+HttpResponse patch_multipart(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, MultiPartContent content, bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout);
 
 std::string ReadBinaryFile(std::string path) {
 	std::ifstream fs;
@@ -89,43 +94,82 @@ void HttpRequest::ClearAllHeaders() {
 }
 
 HttpResponse HttpRequest::Start(HttpMethod method, std::string url) {
-
+	SetDefHeaders(this);
 	switch (method)
 	{
 	case GET:
-		return get(url, this->headers, this->headerCount, this->ProxyUse, this->proxyAddress, this->proxyPort,this->proxytype,this->KeepAlive,this->AllowAutoRedirect,this->AllowCookies);
-	case HEAD:
-		return head(url, this->headers, this->headerCount, this->ProxyUse, this->proxyAddress, this->proxyPort, this->proxytype, this->KeepAlive, this->AllowAutoRedirect, this->AllowCookies);
+	{
+		HttpResponse response = get(url, this->headers, this->headerCount, this->ProxyUse, this->proxyAddress, this->proxyPort, this->proxytype, this->KeepAlive, this->AllowAutoRedirect, this->AllowCookies, this->PermanentHeaders, this->ConnectionTimout, this->ReadWriteTimeout);
+		if (!this->PermanentHeaders)this->ClearAllHeaders();
+		return response; }
+	case HEAD: {
+		HttpResponse response = head(url, this->headers, this->headerCount, this->ProxyUse, this->proxyAddress, this->proxyPort, this->proxytype, this->KeepAlive, this->AllowAutoRedirect, this->AllowCookies, this->PermanentHeaders, this->ConnectionTimout, this->ReadWriteTimeout);
+		if (!this->PermanentHeaders)this->ClearAllHeaders();
+		return response; }
 	case POST:
+		throw "No body found";
+	case PUT:
+		throw "No body found";
+	case PATCH:
 		throw "No body found";
 	}
 }
 
 HttpResponse HttpRequest::Start(HttpMethod method, std::string url, std::string content, std::string content_type) {
+	SetDefHeaders(this);
 	switch (method)
 	{
 	case GET:
 		throw "Get request cannot have a body";
 	case HEAD:
 		throw "Head request cannot have a body";
-	case POST:
-		return post(url, this->headers, this->headerCount, this->ProxyUse, this->proxyAddress, this->proxyPort, this->proxytype, this->KeepAlive, this->AllowAutoRedirect, this->AllowCookies,content,content_type);
+	case POST: {
+		HttpResponse response = post(url, this->headers, this->headerCount, this->ProxyUse, this->proxyAddress, this->proxyPort, this->proxytype, this->KeepAlive, this->AllowAutoRedirect, this->AllowCookies, content, content_type, this->PermanentHeaders, this->ConnectionTimout, this->ReadWriteTimeout);
+		if (!this->PermanentHeaders)this->ClearAllHeaders();
+		return response;
+	}
+	case PUT: {
+		HttpResponse response = put(url, this->headers, this->headerCount, this->ProxyUse, this->proxyAddress, this->proxyPort, this->proxytype, this->KeepAlive, this->AllowAutoRedirect, this->AllowCookies, content, content_type, this->PermanentHeaders, this->ConnectionTimout, this->ReadWriteTimeout);
+		if (!this->PermanentHeaders)this->ClearAllHeaders();
+	return response; 
+	}
+	case PATCH:
+	{
+		HttpResponse response = patch(url, this->headers, this->headerCount, this->ProxyUse, this->proxyAddress, this->proxyPort, this->proxytype, this->KeepAlive, this->AllowAutoRedirect, this->AllowCookies, content, content_type, this->PermanentHeaders, this->ConnectionTimout, this->ReadWriteTimeout);
+		if (!this->PermanentHeaders)this->ClearAllHeaders();
+		return response;
+	}
+
 	}
 }
 
 HttpResponse HttpRequest::Start(HttpMethod method, std::string url, MultiPartContent content) {
+	SetDefHeaders(this);
 	switch (method)
 	{
 	case GET:
 		throw "Get request cannot use multipartcontent";
 	case HEAD:
 		throw "Head request cannot use multipartcontent";
-	case POST:
-		return post_multipart(url, this->headers, this->headerCount, this->ProxyUse, this->proxyAddress, this->proxyPort, this->proxytype, this->KeepAlive, this->AllowAutoRedirect, this->AllowCookies, content);
+	case POST: {
+		HttpResponse response = post_multipart(url, this->headers, this->headerCount, this->ProxyUse, this->proxyAddress, this->proxyPort, this->proxytype, this->KeepAlive, this->AllowAutoRedirect, this->AllowCookies, content, this->PermanentHeaders, this->ConnectionTimout, this->ReadWriteTimeout);
+		if (!this->PermanentHeaders)this->ClearAllHeaders();
+		return response;
+	} 
+	case PUT: {
+		HttpResponse response = put_multipart(url, this->headers, this->headerCount, this->ProxyUse, this->proxyAddress, this->proxyPort, this->proxytype, this->KeepAlive, this->AllowAutoRedirect, this->AllowCookies, content, this->PermanentHeaders, this->ConnectionTimout, this->ReadWriteTimeout);
+		if (!this->PermanentHeaders)this->ClearAllHeaders();
+		return response;
+	}
+	case PATCH: {
+		HttpResponse response = patch_multipart(url, this->headers, this->headerCount, this->ProxyUse, this->proxyAddress, this->proxyPort, this->proxytype, this->KeepAlive, this->AllowAutoRedirect, this->AllowCookies, content, this->PermanentHeaders, this->ConnectionTimout, this->ReadWriteTimeout);
+		if (!this->PermanentHeaders)this->ClearAllHeaders();
+		return response;
+	}
 	}
 }
 
-HttpResponse get(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type,bool KeepAlive,bool AutoRedirect,bool AllowCookies) {
+HttpResponse get(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type,bool KeepAlive,bool AutoRedirect,bool AllowCookies,bool PermenantHeaders,int ConnectionTimeout,int ReadWriteTimeout) {
 	
 	std::string* all = Seperate(url);
 	std::string domain = all[0];
@@ -165,12 +209,19 @@ HttpResponse get(std::string url, std::string headers[], int headercount, bool p
 	}
 	
 	HINTERNET ic = InternetConnect(io, s2ws(domain).c_str(), port, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+	if(ConnectionTimeout > -2)
+	InternetSetOption(ic, INTERNET_OPTION_CONNECT_TIMEOUT,&ConnectionTimeout,sizeof(int));
+	if (ReadWriteTimeout > -2) {
+		InternetSetOption(ic, INTERNET_OPTION_RECEIVE_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+		InternetSetOption(ic, INTERNET_OPTION_SEND_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+	}
 	HINTERNET hreq = HttpOpenRequest(ic, L"GET", s2ws(path).c_str(), L"HTTP/1.1", NULL, NULL, flags, 0);
 	std::string ReqHeaders = "";
 	for (int i = 0; i < 1024;i++) {
 		if (headers[i] == "")break;
 		ReqHeaders += headers[i] + "\r\n";
 	}
+	ReqHeaders += defheaders;
 	HttpAddRequestHeaders(hreq,s2ws(ReqHeaders).c_str(),-1L,NULL);
 	HttpSendRequest(hreq, NULL, 0, NULL, 0);
 	HttpResponse response;
@@ -193,10 +244,13 @@ HttpResponse get(std::string url, std::string headers[], int headercount, bool p
 			j++;
 		}
 	}
+
+
+
 	return response;
 }
 
-HttpResponse head(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies) {
+HttpResponse head(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies,bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout) {
 	std::string* all = Seperate(url);
 	std::string domain = all[0];
 	std::string path = all[1];
@@ -235,12 +289,19 @@ HttpResponse head(std::string url, std::string headers[], int headercount, bool 
 	}
 
 	HINTERNET ic = InternetConnect(io, s2ws(domain).c_str(), port, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+	if (ConnectionTimeout > -2)
+		InternetSetOption(ic, INTERNET_OPTION_CONNECT_TIMEOUT, &ConnectionTimeout, sizeof(int));
+	if (ReadWriteTimeout > -2) {
+		InternetSetOption(ic, INTERNET_OPTION_RECEIVE_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+		InternetSetOption(ic, INTERNET_OPTION_SEND_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+	}
 	HINTERNET hreq = HttpOpenRequest(ic, L"HEAD", s2ws(path).c_str(), L"HTTP/1.1", NULL, NULL, flags, 0);
 	std::string ReqHeaders = "";
 	for (int i = 0; i < 1024; i++) {
 		if (headers[i] == "")break;
 		ReqHeaders += headers[i] + "\r\n";
 	}
+	ReqHeaders += defheaders;
 	HttpAddRequestHeaders(hreq, s2ws(ReqHeaders).c_str(), -1L, NULL);
 	HttpSendRequest(hreq, NULL, 0, NULL, 0);
 	HttpResponse response;
@@ -265,7 +326,7 @@ HttpResponse head(std::string url, std::string headers[], int headercount, bool 
 	return response;
 }
 
-HttpResponse post(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, std::string body, std::string contenttype) {
+HttpResponse post(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, std::string body, std::string contenttype, bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout) {
 	std::string* all = Seperate(url);
 	std::string domain = all[0];
 	std::string path = all[1];
@@ -304,13 +365,20 @@ HttpResponse post(std::string url, std::string headers[], int headercount, bool 
 	}
 
 	HINTERNET ic = InternetConnect(io, s2ws(domain).c_str(), port, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+	if (ConnectionTimeout > -2)
+		InternetSetOption(ic, INTERNET_OPTION_CONNECT_TIMEOUT, &ConnectionTimeout, sizeof(int));
+	if (ReadWriteTimeout > -2) {
+		InternetSetOption(ic, INTERNET_OPTION_RECEIVE_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+		InternetSetOption(ic, INTERNET_OPTION_SEND_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+	}
 	HINTERNET hreq = HttpOpenRequest(ic, L"POST", s2ws(path).c_str(), L"HTTP/1.1", NULL, NULL, flags, 0);
 	std::string ReqHeaders = "";
 	for (int i = 0; i < 1024; i++) {
 		if (headers[i] == "")break;
 		ReqHeaders += headers[i] + "\r\n";
 	}
-	ReqHeaders += "Content-Type: " + contenttype;
+	ReqHeaders += "Content-Type: " + contenttype + "\r\n";
+	ReqHeaders += defheaders;
 	HttpAddRequestHeaders(hreq, s2ws(ReqHeaders).c_str(), -1L, NULL);
 	char* data = new char[body.size()];
 	for (int i = 0; i < body.size(); i++) {
@@ -340,7 +408,7 @@ HttpResponse post(std::string url, std::string headers[], int headercount, bool 
 	return response;
 }
 
-HttpResponse post_multipart(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, MultiPartContent content) {
+HttpResponse post_multipart(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, MultiPartContent content, bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout) {
 	std::string* all = Seperate(url);
 	std::string domain = all[0];
 	std::string path = all[1];
@@ -376,13 +444,20 @@ HttpResponse post_multipart(std::string url, std::string headers[], int headerco
 		io = InternetOpen(NULL, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
 	}
 	HINTERNET ic = InternetConnect(io, s2ws(domain).c_str(), port, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+	if (ConnectionTimeout > -2)
+		InternetSetOption(ic, INTERNET_OPTION_CONNECT_TIMEOUT, &ConnectionTimeout, sizeof(int));
+	if (ReadWriteTimeout > -2) {
+		InternetSetOption(ic, INTERNET_OPTION_RECEIVE_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+		InternetSetOption(ic, INTERNET_OPTION_SEND_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+	}
 	HINTERNET hreq = HttpOpenRequest(ic, L"POST", s2ws(path).c_str(), L"HTTP/1.1", NULL, NULL, flags, 0);
 	std::string ReqHeaders = "";
 	for (int i = 0; i < 1024; i++) {
 		if (headers[i] == "")break;
 		ReqHeaders += headers[i] + "\r\n";
 	}
-	ReqHeaders += "Content-Type: multipart/form-data; boundary=" + content.seperator;
+	ReqHeaders += "Content-Type: multipart/form-data; boundary=" + content.seperator + "\r\n";
+	ReqHeaders += defheaders;
 	HttpAddRequestHeaders(hreq, s2ws(ReqHeaders).c_str(), -1L, NULL);
 
 	std::string body = "";
@@ -430,6 +505,367 @@ HttpResponse post_multipart(std::string url, std::string headers[], int headerco
 	return response;
 }
 
+HttpResponse put(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, std::string body, std::string contenttype, bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout)
+{
+	std::string* all = Seperate(url);
+	std::string domain = all[0];
+	std::string path = all[1];
+	DWORD flags = NULL;
+	int port = 80;
+	if (url.find("https://") != std::string::npos) {
+		flags |= INTERNET_FLAG_SECURE;
+		flags |= INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
+		flags |= INTERNET_FLAG_IGNORE_REDIRECT_TO_HTTP;
+		port = 443;
+	}
+	if (KeepAlive) {
+		flags |= INTERNET_FLAG_KEEP_CONNECTION;
+	}
+	if (!AutoRedirect) {
+		flags |= INTERNET_FLAG_NO_AUTO_REDIRECT;
+	}
+	if (!AllowCookies) {
+		flags |= INTERNET_FLAG_NO_COOKIES;
+	}
+
+
+	HINTERNET io;
+	if (proxyuse) {
+		if (type == http) {
+			std::string proxyBody = proxyAddress + ":" + std::to_string(ProxyPort);
+			io = InternetOpen(NULL, INTERNET_OPEN_TYPE_PROXY, s2ws(proxyBody).c_str(), NULL, 0);
+		}
+		else {
+			std::string proxyBody = "socks=" + proxyAddress + ":" + std::to_string(ProxyPort);
+			io = InternetOpen(NULL, CERN_PROXY_INTERNET_ACCESS, s2ws(proxyBody).c_str(), NULL, 0);
+		}
+	}
+	else {
+		io = InternetOpen(NULL, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+	}
+
+	HINTERNET ic = InternetConnect(io, s2ws(domain).c_str(), port, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+	if (ConnectionTimeout > -2)
+		InternetSetOption(ic, INTERNET_OPTION_CONNECT_TIMEOUT, &ConnectionTimeout, sizeof(int));
+	if (ReadWriteTimeout > -2) {
+		InternetSetOption(ic, INTERNET_OPTION_RECEIVE_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+		InternetSetOption(ic, INTERNET_OPTION_SEND_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+	}
+	HINTERNET hreq = HttpOpenRequest(ic, L"PUT", s2ws(path).c_str(), L"HTTP/1.1", NULL, NULL, flags, 0);
+	std::string ReqHeaders = "";
+	for (int i = 0; i < 1024; i++) {
+		if (headers[i] == "")break;
+		ReqHeaders += headers[i] + "\r\n";
+	}
+	ReqHeaders += "Content-Type: " + contenttype + "\r\n";
+	ReqHeaders += defheaders;
+
+	HttpAddRequestHeaders(hreq, s2ws(ReqHeaders).c_str(), -1L, NULL);
+	char* data = new char[body.size()];
+	for (int i = 0; i < body.size(); i++) {
+		data[i] = body[i];
+	}
+	HttpSendRequest(hreq, NULL, 0, data, body.size());
+	HttpResponse response;
+	response.Url = url;
+	response.ReturnCode = GetStatusCode(hreq);
+	if (response.ReturnCode == 0)throw GetLastError();
+	std::string* ResponseHeaders = GetHeaders(hreq);
+
+	for (int i = 1; i < 1024; i++) {
+		if (ResponseHeaders[i - 1] == "")break;
+		response.headers[i - 1] = ResponseHeaders[i];
+	}
+	int j = 0;
+	response.responseBody = GetResponseBody(hreq);
+	for (int i = 0; i < 1024; i++) {
+		if (response.headers[i] == "")break;
+		if (response.headers[i].find("Set-Cookie:") != std::string::npos) {
+			std::string cookieforheader = GetCookie(response.headers[i]);
+			response.cookies[j] = cookieforheader;
+			j++;
+		}
+	}
+	return response;
+}
+
+HttpResponse put_multipart(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, MultiPartContent content, bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout) {
+	std::string* all = Seperate(url);
+	std::string domain = all[0];
+	std::string path = all[1];
+	DWORD flags = NULL;
+	int port = 80;
+	if (url.find("https://") != std::string::npos) {
+		flags |= INTERNET_FLAG_SECURE;
+		flags |= INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
+		flags |= INTERNET_FLAG_IGNORE_REDIRECT_TO_HTTP;
+		port = 443;
+	}
+	if (KeepAlive) {
+		flags |= INTERNET_FLAG_KEEP_CONNECTION;
+	}
+	if (!AutoRedirect) {
+		flags |= INTERNET_FLAG_NO_AUTO_REDIRECT;
+	}
+	if (!AllowCookies) {
+		flags |= INTERNET_FLAG_NO_COOKIES;
+	}
+	HINTERNET io;
+	if (proxyuse) {
+		if (type == http) {
+			std::string proxyBody = proxyAddress + ":" + std::to_string(ProxyPort);
+			io = InternetOpen(NULL, INTERNET_OPEN_TYPE_PROXY, s2ws(proxyBody).c_str(), NULL, 0);
+		}
+		else {
+			std::string proxyBody = "socks=" + proxyAddress + ":" + std::to_string(ProxyPort);
+			io = InternetOpen(NULL, CERN_PROXY_INTERNET_ACCESS, s2ws(proxyBody).c_str(), NULL, 0);
+		}
+	}
+	else {
+		io = InternetOpen(NULL, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+	}
+	HINTERNET ic = InternetConnect(io, s2ws(domain).c_str(), port, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+	if (ConnectionTimeout > -2)
+		InternetSetOption(ic, INTERNET_OPTION_CONNECT_TIMEOUT, &ConnectionTimeout, sizeof(int));
+	if (ReadWriteTimeout > -2) {
+		InternetSetOption(ic, INTERNET_OPTION_RECEIVE_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+		InternetSetOption(ic, INTERNET_OPTION_SEND_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+	}
+	HINTERNET hreq = HttpOpenRequest(ic, L"PUT", s2ws(path).c_str(), L"HTTP/1.1", NULL, NULL, flags, 0);
+	std::string ReqHeaders = "";
+	for (int i = 0; i < 1024; i++) {
+		if (headers[i] == "")break;
+		ReqHeaders += headers[i] + "\r\n";
+	}
+	ReqHeaders += "Content-Type: multipart/form-data; boundary=" + content.seperator + "\r\n";
+	ReqHeaders += defheaders;
+	HttpAddRequestHeaders(hreq, s2ws(ReqHeaders).c_str(), -1L, NULL);
+
+	std::string body = "";
+	for (int i = 0; i < 1024; i++) {
+		if (content.contents[i]._name == "")break;
+		if (content.contents[i]._filename != "") {
+			body += "--" + content.seperator;
+			body += "\r\nContent-Disposition: form-data; name=\"" + content.contents[i]._name + "\"; filename=\"" + content.contents[i]._filename + "\"\r\nContent-Type: " + GetMimeType(content.contents[i]._filename) + "\r\n\r\n";
+			body += content.contents[i]._value + "\r\n";
+			continue;
+		}
+		else {
+			body += "--" + content.seperator;
+			body += "\r\nContent-Disposition: form-data; name=\"" + content.contents[i]._name + "\"\r\n\r\n";
+			body += content.contents[i]._value + "\r\n";
+			continue;
+		}
+	}
+	body += "--" + content.seperator + "--";
+	char* data = new char[body.size()];
+	for (int i = 0; i < body.size(); i++) {
+		data[i] = body[i];
+	}
+	HttpSendRequest(hreq, NULL, 0, data, body.size());
+	HttpResponse response;
+	response.Url = url;
+	response.ReturnCode = GetStatusCode(hreq);
+	if (response.ReturnCode == 0)throw GetLastError();
+	std::string* ResponseHeaders = GetHeaders(hreq);
+
+	for (int i = 1; i < 1024; i++) {
+		if (ResponseHeaders[i - 1] == "")break;
+		response.headers[i - 1] = ResponseHeaders[i];
+	}
+	int j = 0;
+	response.responseBody = GetResponseBody(hreq);
+	for (int i = 0; i < 1024; i++) {
+		if (response.headers[i] == "")break;
+		if (response.headers[i].find("Set-Cookie:") != std::string::npos) {
+			std::string cookieforheader = GetCookie(response.headers[i]);
+			response.cookies[j] = cookieforheader;
+			j++;
+		}
+	}
+	return response;
+}
+
+HttpResponse patch(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, std::string body, std::string contenttype, bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout)
+{
+	std::string* all = Seperate(url);
+	std::string domain = all[0];
+	std::string path = all[1];
+	DWORD flags = NULL;
+	int port = 80;
+	if (url.find("https://") != std::string::npos) {
+		flags |= INTERNET_FLAG_SECURE;
+		flags |= INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
+		flags |= INTERNET_FLAG_IGNORE_REDIRECT_TO_HTTP;
+		port = 443;
+	}
+	if (KeepAlive) {
+		flags |= INTERNET_FLAG_KEEP_CONNECTION;
+	}
+	if (!AutoRedirect) {
+		flags |= INTERNET_FLAG_NO_AUTO_REDIRECT;
+	}
+	if (!AllowCookies) {
+		flags |= INTERNET_FLAG_NO_COOKIES;
+	}
+
+
+	HINTERNET io;
+	if (proxyuse) {
+		if (type == http) {
+			std::string proxyBody = proxyAddress + ":" + std::to_string(ProxyPort);
+			io = InternetOpen(NULL, INTERNET_OPEN_TYPE_PROXY, s2ws(proxyBody).c_str(), NULL, 0);
+		}
+		else {
+			std::string proxyBody = "socks=" + proxyAddress + ":" + std::to_string(ProxyPort);
+			io = InternetOpen(NULL, CERN_PROXY_INTERNET_ACCESS, s2ws(proxyBody).c_str(), NULL, 0);
+		}
+	}
+	else {
+		io = InternetOpen(NULL, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+	}
+
+	HINTERNET ic = InternetConnect(io, s2ws(domain).c_str(), port, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+	if (ConnectionTimeout > -2)
+		InternetSetOption(ic, INTERNET_OPTION_CONNECT_TIMEOUT, &ConnectionTimeout, sizeof(int));
+	if (ReadWriteTimeout > -2) {
+		InternetSetOption(ic, INTERNET_OPTION_RECEIVE_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+		InternetSetOption(ic, INTERNET_OPTION_SEND_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+	}
+	HINTERNET hreq = HttpOpenRequest(ic, L"PATCH", s2ws(path).c_str(), L"HTTP/1.1", NULL, NULL, flags, 0);
+	std::string ReqHeaders = "";
+	for (int i = 0; i < 1024; i++) {
+		if (headers[i] == "")break;
+		ReqHeaders += headers[i] + "\r\n";
+	}
+	ReqHeaders += "Content-Type: " + contenttype + "\r\n";
+	ReqHeaders += defheaders;
+
+	HttpAddRequestHeaders(hreq, s2ws(ReqHeaders).c_str(), -1L, NULL);
+	char* data = new char[body.size()];
+	for (int i = 0; i < body.size(); i++) {
+		data[i] = body[i];
+	}
+	HttpSendRequest(hreq, NULL, 0, data, body.size());
+	HttpResponse response;
+	response.Url = url;
+	response.ReturnCode = GetStatusCode(hreq);
+	if (response.ReturnCode == 0)throw GetLastError();
+	std::string* ResponseHeaders = GetHeaders(hreq);
+
+	for (int i = 1; i < 1024; i++) {
+		if (ResponseHeaders[i - 1] == "")break;
+		response.headers[i - 1] = ResponseHeaders[i];
+	}
+	int j = 0;
+	response.responseBody = GetResponseBody(hreq);
+	for (int i = 0; i < 1024; i++) {
+		if (response.headers[i] == "")break;
+		if (response.headers[i].find("Set-Cookie:") != std::string::npos) {
+			std::string cookieforheader = GetCookie(response.headers[i]);
+			response.cookies[j] = cookieforheader;
+			j++;
+		}
+	}
+	return response;
+}
+
+HttpResponse patch_multipart(std::string url, std::string headers[], int headercount, bool proxyuse, std::string proxyAddress, int ProxyPort, ProxyType type, bool KeepAlive, bool AutoRedirect, bool AllowCookies, MultiPartContent content, bool PermenantHeaders, int ConnectionTimeout, int ReadWriteTimeout) {
+	std::string* all = Seperate(url);
+	std::string domain = all[0];
+	std::string path = all[1];
+	DWORD flags = NULL;
+	int port = 80;
+	if (url.find("https://") != std::string::npos) {
+		flags |= INTERNET_FLAG_SECURE;
+		flags |= INTERNET_FLAG_IGNORE_CERT_DATE_INVALID;
+		flags |= INTERNET_FLAG_IGNORE_REDIRECT_TO_HTTP;
+		port = 443;
+	}
+	if (KeepAlive) {
+		flags |= INTERNET_FLAG_KEEP_CONNECTION;
+	}
+	if (!AutoRedirect) {
+		flags |= INTERNET_FLAG_NO_AUTO_REDIRECT;
+	}
+	if (!AllowCookies) {
+		flags |= INTERNET_FLAG_NO_COOKIES;
+	}
+	HINTERNET io;
+	if (proxyuse) {
+		if (type == http) {
+			std::string proxyBody = proxyAddress + ":" + std::to_string(ProxyPort);
+			io = InternetOpen(NULL, INTERNET_OPEN_TYPE_PROXY, s2ws(proxyBody).c_str(), NULL, 0);
+		}
+		else {
+			std::string proxyBody = "socks=" + proxyAddress + ":" + std::to_string(ProxyPort);
+			io = InternetOpen(NULL, CERN_PROXY_INTERNET_ACCESS, s2ws(proxyBody).c_str(), NULL, 0);
+		}
+	}
+	else {
+		io = InternetOpen(NULL, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+	}
+	HINTERNET ic = InternetConnect(io, s2ws(domain).c_str(), port, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
+	if (ConnectionTimeout > -2)
+		InternetSetOption(ic, INTERNET_OPTION_CONNECT_TIMEOUT, &ConnectionTimeout, sizeof(int));
+	if (ReadWriteTimeout > -2) {
+		InternetSetOption(ic, INTERNET_OPTION_RECEIVE_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+		InternetSetOption(ic, INTERNET_OPTION_SEND_TIMEOUT, &ReadWriteTimeout, sizeof(int));
+	}
+	HINTERNET hreq = HttpOpenRequest(ic, L"PATCH", s2ws(path).c_str(), L"HTTP/1.1", NULL, NULL, flags, 0);
+	std::string ReqHeaders = "";
+	for (int i = 0; i < 1024; i++) {
+		if (headers[i] == "")break;
+		ReqHeaders += headers[i] + "\r\n";
+	}
+	ReqHeaders += "Content-Type: multipart/form-data; boundary=" + content.seperator + "\r\n";
+	ReqHeaders += defheaders;
+	HttpAddRequestHeaders(hreq, s2ws(ReqHeaders).c_str(), -1L, NULL);
+
+	std::string body = "";
+	for (int i = 0; i < 1024; i++) {
+		if (content.contents[i]._name == "")break;
+		if (content.contents[i]._filename != "") {
+			body += "--" + content.seperator;
+			body += "\r\nContent-Disposition: form-data; name=\"" + content.contents[i]._name + "\"; filename=\"" + content.contents[i]._filename + "\"\r\nContent-Type: " + GetMimeType(content.contents[i]._filename) + "\r\n\r\n";
+			body += content.contents[i]._value + "\r\n";
+			continue;
+		}
+		else {
+			body += "--" + content.seperator;
+			body += "\r\nContent-Disposition: form-data; name=\"" + content.contents[i]._name + "\"\r\n\r\n";
+			body += content.contents[i]._value + "\r\n";
+			continue;
+		}
+	}
+	body += "--" + content.seperator + "--";
+	char* data = new char[body.size()];
+	for (int i = 0; i < body.size(); i++) {
+		data[i] = body[i];
+	}
+	HttpSendRequest(hreq, NULL, 0, data, body.size());
+	HttpResponse response;
+	response.Url = url;
+	response.ReturnCode = GetStatusCode(hreq);
+	if (response.ReturnCode == 0)throw GetLastError();
+	std::string* ResponseHeaders = GetHeaders(hreq);
+
+	for (int i = 1; i < 1024; i++) {
+		if (ResponseHeaders[i - 1] == "")break;
+		response.headers[i - 1] = ResponseHeaders[i];
+	}
+	int j = 0;
+	response.responseBody = GetResponseBody(hreq);
+	for (int i = 0; i < 1024; i++) {
+		if (response.headers[i] == "")break;
+		if (response.headers[i].find("Set-Cookie:") != std::string::npos) {
+			std::string cookieforheader = GetCookie(response.headers[i]);
+			response.cookies[j] = cookieforheader;
+			j++;
+		}
+	}
+	return response;
+}
 
 std::string* GetHeaders(HINTERNET hreq) {
 	DWORD dwInfoLevel = HTTP_QUERY_RAW_HEADERS_CRLF;
@@ -560,12 +996,17 @@ MultiPartContent::MultiPartContent(std::initializer_list<HttpContent> h) {
 		contents[i] = content;
 		i++;
 	}
+	Random random;
 	for (i = 0; i < 32; i++) {
-		int a = (std::rand() % 95) + 32;
-			if (a == 0 || a==12) {
-			a = 35;
-		}
-		seperator += (char)a;
+		seperator += random.GenerateChar();
 	}
 }
 
+void SetDefHeaders(HttpRequest* req) {
+	HttpRequest request = *req;
+	if (request.AcceptEncoding != "")defheaders += "Accept-Encoding: " + request.AcceptEncoding + "\r\n";
+	if (request.Authorization != "")defheaders += "Authorization: " + request.Authorization + "\r\n";
+	if (request.Cookies != "")defheaders += "Cookies: " + request.Cookies + "\r\n";
+	if (request.Referer != "")defheaders += "Referer: " + request.Referer + "\r\n";
+	if (request.UserAgent != "")defheaders += "User-Agent: " + request.UserAgent + "\r\n";
+}
