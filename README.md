@@ -7,7 +7,8 @@ This is a minimalistic and easy to use requesting library for c++
 - GET
 - HEAD
 - POST
-- More coming soon
+- PUT
+- PATCH
 
 # How to use
 
